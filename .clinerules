@@ -1,0 +1,151 @@
+あなたはgolang開発のエキスパートです。クールなコーディングが得意です。
+
+# Go言語でのDDD実装コーディングルール
+
+## 5. テスト駆動開発（TDD）と実装手順
+
+### 5.1 ドメインモデルのテスト規約
+- 各集約のテストは独立した単体テストとして実装する
+- テスト名はビジネスシナリオを表現する
+- Given-When-Then または Arrange-Act-Assert パターンでテストを構造化する
+
+```go
+func TestOrder_PlaceOrder(t *testing.T) {
+    // Given
+    orderID, _ := NewOrderID("ORD-123456")
+    customerID, _ := NewCustomerID("CUST-789")
+    order := NewOrder(orderID, customerID)
+    
+    productID, _ := NewProductID("PROD-001")
+    order.AddItem(productID, 2, NewMoney(100))
+    
+    // When
+    err := order.PlaceOrder()
+    
+    // Then
+    assert.NoError(t, err)
+    assert.Equal(t, OrderStatusPlaced, order.Status())
+    assert.Len(t, order.Events(), 1)
+    
+    // イベントの検証
+    events := order.Events()
+    assert.IsType(t, OrderPlacedEvent{}, events[0])
+    event := events[0].(OrderPlacedEvent)
+    assert.Equal(t, orderID.String(), event.OrderID)
+    assert.Equal(t, customerID.String(), event.CustomerID)
+}
+
+func TestOrder_PlaceOrder_EmptyOrder(t *testing.T) {
+    // Given
+    orderID, _ := NewOrderID("ORD-123456")
+    customerID, _ := NewCustomerID("CUST-789")
+    order := NewOrder(orderID, customerID)
+    
+    // When
+    err := order.PlaceOrder()
+    
+    // Then
+    assert.Error(t, err)
+    assert.Equal(t, "order must have at least one item", err.Error())
+    assert.Len(t, order.Events(), 0)
+}
+```
+
+### 5.2 モックの実装規約
+- リポジトリやサービスのモックを作成し、ユニットテストで利用する
+- モックは実際のインターフェースを実装する構造体として定義する
+
+```go
+// モックリポジトリ
+type MockOrderRepository struct {
+    orders map[string]*Order
+}
+
+func NewMockOrderRepository() *MockOrderRepository {
+    return &MockOrderRepository{
+        orders: make(map[string]*Order),
+    }
+}
+
+func (m *MockOrderRepository) Save(ctx context.Context, order *Order) error {
+    m.orders[order.ID().String()] = order
+    return nil
+}
+
+func (m *MockOrderRepository) FindByID(ctx context.Context, id OrderID) (*Order, error) {
+    order, exists := m.orders[id.String()]
+    if !exists {
+        return nil, ErrOrderNotFound
+    }
+    return order, nil
+}
+```
+
+## 10. 命名規約とコードスタイル
+
+### 10.1 ユビキタス言語に基づく命名
+- コード内の用語はドメインエキスパートとの共通言語（ユビキタス言語）に従う
+- 用語集（ユビキタス言語辞書）を維持し、コード内で一貫して使用する
+
+```go
+// 良い例：ドメイン用語を使用
+type Order struct {
+    // ...
+}
+
+func (o *Order) PlaceOrder() error {
+    // ...
+}
+
+// 悪い例：技術用語や汎用的な用語を使用
+type OrderData struct {
+    // ...
+}
+
+func (o *OrderData) Submit() error {
+    // ...
+}
+```
+
+### 10.2 DDDパターンに基づく命名規約
+- エンティティ：名詞、集約名
+  - `Order`, `Customer`, `Product`
+- 値オブジェクト：名詞＋属性、単位
+  - `OrderID`, `CustomerName`, `Money`, `EmailAddress`
+- リポジトリ：エンティティ名＋Repository
+  - `OrderRepository`, `CustomerRepository`
+- ファクトリ：エンティティ名＋Factory
+  - `OrderFactory`, `ProductFactory`
+- サービス：名詞＋Service
+  - `OrderService`, `PricingService`
+- ドメインイベント：過去形の動詞＋Event
+  - `OrderPlacedEvent`, `PaymentProcessedEvent`
+
+### 10.3 メソッド命名規約
+- コマンド（状態変更）：命令形の動詞
+  - `PlaceOrder()`, `AddItem()`, `CancelOrder()`
+- クエリ（状態取得）：getまたは状態を表す動詞
+  - `GetTotal()`, `IsCompleted()`, `CanBeCancelled()`
+- ファクトリメソッド：Createまたは状態を表す名詞/動詞
+  - `CreateOrder()`, `NewOrder()`, `ReconstructOrder()`
+
+### 10.4 コメント規約
+- パブリックAPI：Godoc規約に従ったコメントを必ず記述
+- ドメインロジック：ビジネスルールを明確に説明
+- 複雑なバリデーション：バリデーションルールを説明
+
+```go
+// Order represents a customer order in the system.
+// It serves as the aggregate root for the order domain.
+type Order struct {
+    // ...
+}
+
+// PlaceOrder changes the order status to "placed" and
+// validates that the order can be fulfilled.
+// Returns ErrEmptyOrder if the order has no items.
+// Returns ErrInvalidStatus if the order is not in draft status.
+func (o *Order) PlaceOrder() error {
+    // ...
+}
+```
