@@ -7,32 +7,27 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const (
-	dbHost     = "192.168.1.49"
-	dbPort     = 3306
-	dbUser     = "your_db_user"
-	dbPassword = "your_db_password"
-	dbName     = "your_db_name"
-)
+// sql.Open関数をラップした変数。これによりテスト時にモック化が可能になる。
+var openDBFunc = sql.Open
 
-// ConnectDB establishes a connection to the MySQL database.
+// ConnectDB はMySQLデータベースへの接続を確立します。
 func ConnectDB() (*sql.DB, error) {
 	// DSNフォーマット: user:password@tcp(host:port)/dbname?parseTime=true
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
-	db, err := sql.Open("mysql", dsn)
+	db, err := openDBFunc("mysql", dsn)
 	if err != nil {
 		return nil, err
 	}
 	return db, nil
 }
 
-// PingDB checks the database connection.
+// PingDB はデータベース接続を確認します。
 func PingDB(db *sql.DB) error {
 	return db.Ping()
 }
 
-// QueryStocks executes a SELECT query to retrieve all rows from the stocks table where name matches.
+// QueryStocks は名前に一致する全ての行をstocksテーブルから取得するためのSELECTクエリを実行します。
 func QueryStocks(db *sql.DB, name string) ([]map[string]interface{}, error) {
 	query := "SELECT * FROM stocks WHERE name = ?;"
 	rows, err := db.Query(query, name)
