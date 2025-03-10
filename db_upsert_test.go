@@ -77,16 +77,42 @@ func TestUpsertStock(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// 共通ヘルパー関数を使用してモックをセットアップ
-			db, mock := setupUpsertMock(t, tc.stockName, tc.existing, tc.amount)
-			defer db.Close()
+			db, mock, _ := setupMockDB(t) // 連鎖的にopenDBFuncもモック化される
 
-			// UpsertStock関数を実行
+			// 以下、必要なモック設定...
+			if tc.existing == nil {
+				// 存在しない商品（INSERT）のテストパターン設定
+				mock.ExpectQuery(`SELECT amount FROM stocks WHERE name = \?`).
+					WithArgs(tc.stockName).
+					WillReturnError(sql.ErrNoRows)
+
+				mock.ExpectBegin()
+				mock.ExpectExec(`INSERT INTO stocks \(name, amount\) VALUES \(\?, \?\);`).
+					WithArgs(tc.stockName, tc.amount).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectCommit()
+			} else {
+				// 既存商品（UPDATE）のテストパターン設定
+				newAmount := *tc.existing + tc.amount
+
+				mock.ExpectQuery(`SELECT amount FROM stocks WHERE name = \?`).
+					WithArgs(tc.stockName).
+					WillReturnRows(sqlmock.NewRows([]string{"amount"}).AddRow(*tc.existing))
+
+				mock.ExpectBegin()
+				mock.ExpectExec(`UPDATE stocks SET amount = \? WHERE name = \?;`).
+					WithArgs(newAmount, tc.stockName).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
+			}
+
+			// UpsertStock関数を実行 - この時点でdb接続はモック化されている
 			err := UpsertStock(db, tc.stockName, tc.amount)
 			if err != nil {
 				t.Fatalf("予期せぬエラー: %v", err)
 			}
 
-			// 共通関数を使用してモックの期待検証
+			// 期待通りのSQL実行を検証
 			verifyExpectations(t, mock)
 		})
 	}
