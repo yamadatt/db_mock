@@ -3,10 +3,10 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/assert" // 追加
 )
 
 // setupUpsertMock はUpsertStockのテスト用にモックを設定します
@@ -77,7 +77,8 @@ func TestUpsertStock(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// 共通ヘルパー関数を使用してモックをセットアップ
-			db, mock, _ := setupMockDB(t) // 連鎖的にopenDBFuncもモック化される
+			db, mock, _ := setupMockDB(t)
+			defer db.Close()
 
 			// 以下、必要なモック設定...
 			if tc.existing == nil {
@@ -106,14 +107,14 @@ func TestUpsertStock(t *testing.T) {
 				mock.ExpectCommit()
 			}
 
-			// UpsertStock関数を実行 - この時点でdb接続はモック化されている
+			// UpsertStock関数を実行
 			err := UpsertStock(db, tc.stockName, tc.amount)
-			if err != nil {
-				t.Fatalf("予期せぬエラー: %v", err)
-			}
+
+			// assertを使用して簡潔に表現
+			assert.NoError(t, err, "UpsertStock関数はエラーを返すべきではない")
 
 			// 期待通りのSQL実行を検証
-			verifyExpectations(t, mock)
+			assert.NoError(t, mock.ExpectationsWereMet(), "すべての期待されたSQL操作が行われるべき")
 		})
 	}
 }
@@ -199,9 +200,7 @@ func TestUpsertStock_TransactionErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// モックDBの設定（setupMockDBは共通のヘルパー関数とする）
 			db, mock, err := setupMockDB(t)
-			if err != nil {
-				t.Fatalf("sqlmockの初期化エラー: %v", err)
-			}
+			assert.NoError(t, err, "sqlmockの初期化に成功するべき")
 			defer db.Close()
 
 			// テスト固有のモック設定を実行
@@ -209,18 +208,14 @@ func TestUpsertStock_TransactionErrors(t *testing.T) {
 
 			// UpsertStock関数を実行
 			err = UpsertStock(db, tc.itemName, tc.amount)
-			if err == nil {
-				t.Fatal("エラーを期待していましたが、nilが返されました")
-			}
 
-			// エラーメッセージに期待する文字列が含まれているかシンプルに検証
-			if !strings.Contains(err.Error(), tc.expectedErr) {
-				t.Fatalf("エラーメッセージに'%s'が含まれることを期待していましたが、'%s'が返されました",
-					tc.expectedErr, err.Error())
-			}
+			// エラーチェックを簡潔に記述
+			assert.Error(t, err, "エラーを返すことを期待している")
+			assert.Contains(t, err.Error(), tc.expectedErr,
+				"エラーメッセージに期待する文字列が含まれているべき")
 
 			// モックの期待がすべて満たされたか検証
-			verifyExpectations(t, mock)
+			assert.NoError(t, mock.ExpectationsWereMet(), "すべての期待されたSQL操作が行われるべき")
 		})
 	}
 }

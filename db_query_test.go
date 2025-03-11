@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/assert" // 追加
 )
 
 func TestQueryStocks(t *testing.T) {
@@ -66,34 +67,26 @@ func TestQueryStocks(t *testing.T) {
 
 			// テスト対象関数の実行
 			results, err := QueryStocks(db, tc.queryArg)
+
 			if tc.expectError {
-				if err == nil {
-					t.Fatalf("エラー発生を期待しましたが、nilが返されました")
-				}
-				// エラー内容の検証を追加可能
+				assert.Error(t, err, "エラーが発生するべき")
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("予期せぬエラー: %v", err)
-			}
+			// 正常系のアサーション
+			assert.NoError(t, err, "エラーが発生すべきでない")
+			assert.Len(t, results, len(tc.expectedResult), "結果の行数が期待通りであるべき")
 
-			// 結果の件数の検証
-			if len(results) != len(tc.expectedResult) {
-				t.Fatalf("期待される行数は%dでしたが、%d行返されました", len(tc.expectedResult), len(results))
-			}
-
-			// 返却結果全体をDeepEqualで検証
+			// 返却結果の検証
 			for i, expected := range tc.expectedResult {
 				for key, expectedVal := range expected {
-					if results[i][key] != expectedVal {
-						t.Errorf("結果[%d]の'%s'が期待値'%v'と異なります（実際: '%v'）", i, key, expectedVal, results[i][key])
-					}
+					assert.Equal(t, expectedVal, results[i][key],
+						"結果[%d]の'%s'が期待値と一致するべき", i, key)
 				}
 			}
 
-			// 共通関数を使用してモックの期待検証
-			verifyExpectations(t, mock)
+			// モックの期待検証
+			assert.NoError(t, mock.ExpectationsWereMet(), "すべての期待されるSQLが実行されるべき")
 		})
 	}
 }
@@ -128,16 +121,13 @@ func TestQueryStocks_Error(t *testing.T) {
 
 			// QueryStocks関数を実行
 			_, err := QueryStocks(db, tc.queryArg)
-			if err == nil {
-				t.Fatal("エラーを期待していましたが、nilが返されました")
-			}
-			// errors.Is を使ったエラー比較
-			if !errors.Is(err, tc.expectedErr) {
-				t.Fatalf("期待されるエラー '%v' と実際のエラー '%v' が一致しません", tc.expectedErr, err)
-			}
 
-			// 共通関数を使用してモックの期待検証
-			verifyExpectations(t, mock)
+			// エラー検証
+			assert.Error(t, err, "エラーが発生するべき")
+			assert.Equal(t, tc.expectedErr.Error(), err.Error(), "期待されるエラーメッセージと一致するべき")
+
+			// モックの期待検証
+			assert.NoError(t, mock.ExpectationsWereMet(), "すべての期待されるSQLが実行されるべき")
 		})
 	}
 }

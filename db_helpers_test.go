@@ -37,15 +37,3 @@ func verifyExpectations(t *testing.T, mock sqlmock.Sqlmock) {
 		t.Errorf("期待されたクエリが実行されませんでした: %v", err)
 	}
 }
-
-// setupTransaction はモックでトランザクションの開始とコミットを期待するよう設定します
-// func setupTransaction(mock sqlmock.Sqlmock) {
-// 	mock.ExpectBegin()
-// 	mock.ExpectCommit()
-// }
-
-// setupRollbackTransaction はモックでトランザクションの開始とロールバックを期待するよう設定します
-// func setupRollbackTransaction(mock sqlmock.Sqlmock) {
-// 	mock.ExpectBegin()
-// 	mock.ExpectRollback()
-// }
