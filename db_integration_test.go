@@ -10,6 +10,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/stretchr/testify/assert" // 追加
 )
 
 const (
@@ -74,7 +75,8 @@ func waitForMySQL(t *testing.T, dsn string) *sql.DB {
 	var db *sql.DB
 	var connectErr error
 
-	t.Log("MySQLコンテナに接続を試行中...")
+	startTime := time.Now()
+	t.Logf("MySQLコンテナに接続を試行中... (開始時刻: %v)", startTime.Format("15:04:05"))
 	for {
 		select {
 		case <-ticker.C:
@@ -86,7 +88,8 @@ func waitForMySQL(t *testing.T, dsn string) *sql.DB {
 				}
 				db.Close()
 			}
-			t.Logf("接続試行エラー: %v", connectErr)
+			elapsed := time.Since(startTime)
+			t.Logf("接続試行エラー: %v (経過時間: %v) 起動まで約1分45秒ぐらいかかる", connectErr, elapsed)
 		case <-ctx.Done():
 			t.Fatalf("タイムアウト: MySQLコンテナに接続できません。最後のエラー: %v", connectErr)
 		}
@@ -134,46 +137,63 @@ func TestIntegrationDBConnection(t *testing.T) {
 	defer cleanup()
 
 	t.Run("実DB接続テスト", func(t *testing.T) {
-		if err := db.Ping(); err != nil {
-			t.Fatalf("DB Pingエラー: %v", err)
-		}
+		// assertを使って簡潔に記述
+		assert.NoError(t, db.Ping(), "DBへの接続とPingは成功すべき")
 		t.Log("実DBへの接続とPing成功")
 	})
 
 	t.Run("実DBでのクエリテスト", func(t *testing.T) {
 		results, err := QueryStocks(db, "apple")
-		if err != nil {
-			t.Fatalf("QueryStocksエラー: %v", err)
+
+		// エラーチェック
+		assert.NoError(t, err, "QueryStocksは成功すべき")
+
+		// 結果の検証
+		if assert.Len(t, results, 1, "結果は1件のみ存在すべき") {
+			// 結果が存在する場合のみフィールド検証
+			assert.Equal(t, "apple", results[0]["name"], "結果の商品名が一致すべき")
+			assert.Equal(t, int64(100), results[0]["amount"], "結果の数量が一致すべき")
 		}
-		if len(results) != 1 {
-			t.Fatalf("期待される結果数: 1, 実際: %d", len(results))
-		}
-		if results[0]["name"] != "apple" {
-			t.Errorf("期待される名前: apple, 実際: %v", results[0]["name"])
-		}
-		if results[0]["amount"] != int64(100) {
-			t.Errorf("期待される数量: 100, 実際: %v", results[0]["amount"])
-		}
+
 		t.Log("実DBでのクエリテスト成功")
 	})
 
 	t.Run("実DBでのUpsertテスト", func(t *testing.T) {
+		fmt.Println("=== 実DBでのUpsertテスト 開始 ===")
+
 		// 新規データのUpsert
-		if err := UpsertStock(db, "banana", 50); err != nil {
-			t.Fatalf("UpsertStockエラー (INSERT): %v", err)
-		}
+		fmt.Println("新規データ 'banana' をUpsert (数量: 50)")
+		assert.NoError(t, UpsertStock(db, "banana", 50), "新規データのUpsertは成功すべき")
+
 		// 既存データの更新
-		if err := UpsertStock(db, "apple", 200); err != nil {
-			t.Fatalf("UpsertStockエラー (UPDATE): %v", err)
-		}
+		fmt.Println("既存データ 'apple' をUpsert (数量: 200、初期値は100)")
+		assert.NoError(t, UpsertStock(db, "apple", 200), "既存データの更新は成功すべき")
+
 		// 変更を確認
+		fmt.Println("更新後のデータを確認中...")
 		results, err := QueryStocks(db, "apple")
-		if err != nil {
-			t.Fatalf("更新後のQueryStocksエラー: %v", err)
+		assert.NoError(t, err, "更新後のQueryStocksは成功すべき")
+
+		if assert.Len(t, results, 1, "更新後も結果は1件のみ存在すべき") {
+			fmt.Printf("確認結果: apple の数量 = %d (期待値: 300)\n", results[0]["amount"])
+			assert.Equal(t, int64(300), results[0]["amount"], "更新後の数量は300になるべき")
 		}
-		if len(results) != 1 || results[0]["amount"] != int64(300) {
-			t.Errorf("期待されるappleの数量: 300, 実際: %v", results[0]["amount"])
+
+		//全件表示して、appleが300、bananaが50になっていることを確認
+		fmt.Println("全データを表示中...")
+		results, err = QueryStocks(db, "")
+		assert.NoError(t, err, "全データのQueryStocksは成功すべき")
+
+		if assert.Len(t, results, 2, "全データは2件存在すべき") {
+
+			for _, r := range results {
+				fmt.Printf("商品名: %s, 数量: %d\n", r["name"], r["amount"])
+				assert.Equal(t, int64(300), results[0]["amount"], "appleの数量は300になるべき")
+				assert.Equal(t, int64(50), results[1]["amount"], "bananaの数量は50になるべき")
+			}
+
+			fmt.Println("=== 実DBでのUpsertテスト 完了 ===")
+			t.Log("実DBでのUpsertテスト成功")
 		}
-		t.Log("実DBでのUpsertテスト成功")
 	})
 }

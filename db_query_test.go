@@ -26,6 +26,22 @@ func TestQueryStocks(t *testing.T) {
 			},
 			expectError: false,
 		},
+		// 全件表示のテストケース
+		{
+			name:     "空の名前で全件表示",
+			queryArg: "", // 空文字列を渡す
+			mockRows: sqlmock.NewRows([]string{"id", "name", "amount"}).
+				AddRow(1, "apple", 100).
+				AddRow(2, "banana", 50).
+				AddRow(3, "orange", 75),
+			mockQueryRegex: "SELECT \\* FROM stocks;", // WHERE句のないクエリ
+			expectedResult: []map[string]interface{}{
+				{"id": int64(1), "name": "apple", "amount": int64(100)},
+				{"id": int64(2), "name": "banana", "amount": int64(50)},
+				{"id": int64(3), "name": "orange", "amount": int64(75)},
+			},
+			expectError: false,
+		},
 		// ※ 必要に応じて、他のテストケースを追加できます
 	}
 
@@ -37,9 +53,16 @@ func TestQueryStocks(t *testing.T) {
 			defer db.Close()
 
 			// 期待するクエリと返却行の設定
-			mock.ExpectQuery(tc.mockQueryRegex).
-				WithArgs(tc.queryArg).
-				WillReturnRows(tc.mockRows)
+			if tc.queryArg == "" {
+				// 空文字列の場合はWHERE句なしのクエリが期待される
+				mock.ExpectQuery(tc.mockQueryRegex).
+					WillReturnRows(tc.mockRows)
+			} else {
+				// 通常のケースはWHERE句ありのクエリが期待される
+				mock.ExpectQuery(tc.mockQueryRegex).
+					WithArgs(tc.queryArg).
+					WillReturnRows(tc.mockRows)
+			}
 
 			// テスト対象関数の実行
 			results, err := QueryStocks(db, tc.queryArg)

@@ -28,9 +28,24 @@ func PingDB(db *sql.DB) error {
 }
 
 // QueryStocks は名前に一致する全ての行をstocksテーブルから取得するためのSELECTクエリを実行します。
+// 空の名前文字列を渡した場合は、すべての在庫データを返します。
 func QueryStocks(db *sql.DB, name string) ([]map[string]interface{}, error) {
-	query := "SELECT * FROM stocks WHERE name = ?;"
-	rows, err := db.Query(query, name)
+	var (
+		query string
+		rows  *sql.Rows
+		err   error
+	)
+
+	if name == "" {
+		// 名前が空の場合は全レコードを取得
+		query = "SELECT * FROM stocks;"
+		rows, err = db.Query(query)
+	} else {
+		// 特定の名前に一致するレコードを取得
+		query = "SELECT * FROM stocks WHERE name = ?;"
+		rows, err = db.Query(query, name)
+	}
+
 	if err != nil {
 		return nil, err
 	}

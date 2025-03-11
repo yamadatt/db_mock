@@ -26,11 +26,29 @@ DBをモックにしてテストする手法がピンとこないので、実際
 
 ## コマンド
 
+unit-test:
+
+```bash
+SKIP_INTEGRATION=1 go test -v -race ./...
+```
+
+integration-test:
+
+```bash
+	go test -v -run "Integration" ./...
+```
+
 テストのカバレッジまで出力する。
+
+
 
 ```bash
 go test -v --cover
 ```
+
+
+
+
 
 func main() {
 	// データベースに接続
