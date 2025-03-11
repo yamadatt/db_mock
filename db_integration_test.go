@@ -70,7 +70,7 @@ func setupIntegrationTest(t *testing.T) (*sql.DB, func()) {
 	var db *sql.DB
 	var connectErr error
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=10s",
-		testDBUser, testDBPassword, "192.168.1.78", testDBPort, testDBName)
+		testDBUser, testDBPassword, "localhost", testDBPort, testDBName)
 
 	// ログにDSNを出力（パスワードは隠してもよい）
 	t.Logf("接続DSN: %s", dsn)
