@@ -14,20 +14,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set up Go with caching
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Build
         run: go build -v ./...
@@ -57,10 +49,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set up Go with caching
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Run integration tests
         run: |
