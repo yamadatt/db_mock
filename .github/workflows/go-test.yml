@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  unit-test:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -31,25 +32,33 @@ jobs:
       - name: Build
         run: go build -v ./...
 
-      - name: Run tests with coverage
+      - name: Run unit tests with coverage
         run: |
-          go test -race -coverprofile=coverage.out -covermode=atomic ./...
+          SKIP_INTEGRATION=1 go test -race -coverprofile=coverage.out -covermode=atomic ./...
           go tool cover -html=coverage.out -o coverage.html
           go tool cover -func=coverage.out
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: coverage-report
+          name: unit-test-coverage
           path: |
             coverage.out
             coverage.html
 
-      # カバレッジをコメントとして追加（オプショナル - PRの場合）
-      - name: Comment coverage on PR
-        if: github.event_name == 'pull_request'
-        uses: codecov/codecov-action@v5
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-test  # ユニットテスト成功後に実行
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          files: ./coverage.out
-          fail_ci_if_error: false
-          verbose: true
+          go-version: '1.23'
+
+      - name: Run integration tests
+        run: |
+          go test -v -run "Integration" ./...

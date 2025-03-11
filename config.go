@@ -1,7 +1,7 @@
 package main
 
 // 本番要件に合わせて変更してください
-const (
+var (
 	dbHost     = "192.168.1.49"
 	dbPort     = 3306
 	dbUser     = "your_db_user"
