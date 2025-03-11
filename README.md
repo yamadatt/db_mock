@@ -31,3 +31,42 @@ DBをモックにしてテストする手法がピンとこないので、実際
 ```bash
 go test -v --cover
 ```
+
+func main() {
+	// データベースに接続
+	db, err := ConnectDB()
+	if err != nil {
+		log.Fatalf("DB接続に失敗しました: %v", err)
+	}
+	defer db.Close()
+}
+
+
+
+
+
+
+// ConnectDB はMySQLデータベースへの接続を確立します。
+func ConnectDB() (*sql.DB, error) {
+	// DSNフォーマット: user:password@tcp(host:port)/dbname?parseTime=true
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		dbUser, dbPassword, dbHost, dbPort, dbName)
+	db, err := openDBFunc("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+
+依存注入するには
+
+先頭にこれを入れる。
+
+var openDBFunc = sql.Open
+
+sql.Open は Go の標準 database/sql パッケージの関数で、指定したドライバとデータソース名（DSN）を使用してデータベース接続を確立します。
+
+ユニットテスト：テスト時にモックdbを入れる
+インテグレーションテスト：dockerのDBを入れる
+E2Eテスト：検証環境のRDSを入れる
