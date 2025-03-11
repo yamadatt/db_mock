@@ -59,3 +59,12 @@ jobs:
       - name: Run integration tests
         run: |
           go test -v -run "Integration" ./...
+
+
+  actions-timeline:
+    name: Actions Timeline
+    needs: [unit-test, integration-test]
+
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: Kesin11/actions-timeline@v2
