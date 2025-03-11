@@ -33,10 +33,13 @@ jobs:
         run: go build -v ./...
 
       - name: Run unit tests with coverage
-        run: |
-          SKIP_INTEGRATION=1 go test -race -coverprofile=coverage.out -covermode=atomic ./...
-          go tool cover -html=coverage.out -o coverage.html
-          go tool cover -func=coverage.out
+        run: SKIP_INTEGRATION=1 go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Generate HTML coverage report
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Analyze coverage function report
+        run: go tool cover -func=coverage.out
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
