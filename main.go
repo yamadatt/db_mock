@@ -1,27 +1,24 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 )
 
-func main() {
-	// データベースに接続
-	db, err := ConnectDB()
-	if err != nil {
-		log.Fatalf("DB接続に失敗しました: %v", err)
-	}
-	defer db.Close()
-
+// mainProcessは、商品名と数量を受け取って処理を行います。
+// main()からの呼び出し時にはハードコードした値を渡し、
+// テスト時には任意の値をモックできるようになります。
+func mainProcess(db *sql.DB, productName string, amount int) error {
 	// 接続確認
 	if err := PingDB(db); err != nil {
-		log.Fatalf("DB接続確認に失敗しました: %v", err)
+		return fmt.Errorf("DB接続確認に失敗しました: %v", err)
 	}
 
 	// stocksテーブルから"name"が"apple"のレコードを取得
-	results, err := QueryStocks(db, "apple")
+	results, err := QueryStocks(db, productName)
 	if err != nil {
-		log.Fatalf("クエリ実行に失敗しました: %v", err)
+		return fmt.Errorf("クエリ実行に失敗しました: %v", err)
 	}
 
 	// 取得結果の表示
@@ -34,9 +31,28 @@ func main() {
 	fmt.Println("クエリの実行が完了しました。")
 
 	// 例: "apple"の在庫を200追加
-	err = UpsertStock(db, "apple", 200)
+	err = UpsertStock(db, productName, amount)
 	if err != nil {
-		log.Fatalf("在庫更新エラー: %v", err)
+		return fmt.Errorf("在庫更新エラー: %v", err)
 	}
 	fmt.Println("在庫データが更新されました")
+	return nil
+}
+
+func main() {
+	// 固定値はここで定義
+	productName := "apple"
+	amount := 200
+
+	db, err := ConnectDB()
+	if err != nil {
+		log.Fatalf("DB接続に失敗しました: %v", err)
+	}
+	defer db.Close()
+
+	// 処理を委譲
+	err = mainProcess(db, productName, amount)
+	if err != nil {
+		log.Fatalf("処理に失敗しました: %v", err)
+	}
 }
